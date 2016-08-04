@@ -9,13 +9,31 @@
 #include <string>
 #include <vector>
 
+#ifdef __CUDACC__
+#include <thrust/device_vector.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/transform.h>
+#include <thrust/generate.h>
+#include <thrust/functional.h>
+#include <thrust/execution_policy.h>
+#include <thrust/tuple.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_malloc.h>
+#include <thrust/device_free.h>
+#endif
+
 namespace liquidator
 {
+
 
 // motif position weight matrix (pwm) for scoring sequences 
 class ScoreMatrix
 {
 public:
+
+    // See fimo_style_printer.h for example of a ScoreConsumer.
     static constexpr std::array<double, AlphabetSize> default_acgt_background = {{0.281774, 0.222020, 0.228876, 0.267330}};
 
     // Input format described at http://meme.ebi.edu.au/meme/doc/meme-format.html .
@@ -29,6 +47,7 @@ public:
     // Note that only order 0 values are used.
     static std::array<double, AlphabetSize> read_background(std::istream& background);
 
+
     ScoreMatrix(const std::string& name,
                 const std::array<double, AlphabetSize>& background,
                 bool average_background_for_reverse,
@@ -36,7 +55,8 @@ public:
                 unsigned number_of_sites,
                 bool is_reverse_complement = false,
                 double pseudo_sites = 0.1);
- 
+    
+
     // Scores reference a sequence string so are intended to be used only
     // in the scope of a ScoreConsumer operator.
     class Score
@@ -58,6 +78,14 @@ public:
             bool is_reverse_complement() const { return m_is_reverse_complement; }
 
             Score(const std::string& sequence, bool is_reverse_complement, size_t begin, size_t end, double pvalue, double score);
+            struct score_data {
+                const bool m_is_reverse_complement;
+                const size_t m_begin;
+                const size_t m_end;
+                const double m_pvalue;
+                const double m_score;
+            };
+
 
         private:
             const std::string& m_sequence;
@@ -67,16 +95,121 @@ public:
             const double m_pvalue;
             const double m_score;
     };
+   
+    #ifdef __CUDACC__
+    /*scaled score, p-value, start loc, end loc*/ 
+    typedef thrust::tuple<double, double, size_t, size_t> score_values;
 
-    // See fimo_style_printer.h for example of a ScoreConsumer.
-    template <typename ScoreConsumer>
-    void score(const std::string& sequence, ScoreConsumer& consumer) const
-    {
-        for (size_t start = 1, stop = m_matrix.size(); stop <= sequence.size(); ++start, ++stop)
-        {
-            const Score score = score_sequence(sequence, start-1, stop);
-            consumer(m_name, start, stop, score);
+    struct FunctorScore {
+        thrust::device_ptr <double> p_value;
+        thrust::device_ptr <unsigned> matrix;
+        thrust::device_ptr <char> sequence;
+        size_t sequence_length;
+        size_t motif_size;
+        size_t pvalue_size;
+        double const_unscaled;
+        double m_scale;
+
+        FunctorScore() {};
+
+        void set_matrix(std::vector<std::array<unsigned, 4>> test) {
+            matrix = thrust::device_malloc<unsigned>(test.size() * 4);
+            for (int r = 0; r < test.size(); ++r) {
+                for (int c = 0; c < 4; ++c) {
+                    matrix[r * 4 + c] = test[r][c];
+                }
+            }   
+
         }
+
+        void set_pvalue(std::vector<double> pval) {
+            p_value = thrust::device_malloc<double> (pval.size());
+            for (int i = 0; i < pval.size(); ++i) {
+                p_value[i] = pval[i];
+            }
+
+        }
+
+        __device__
+        unsigned pos(char c) {
+
+            if (c == 'A') {
+                return 0;
+            } else if (c == 'T') {
+                return 3;
+            } else if (c == 'C') {
+                return 1;
+            } else if (c == 'G') {
+                return 2;
+            } else {
+                return 99;
+            }
+
+        };
+
+        __device__
+        score_values operator() (int i) {
+            unsigned score = 0;
+            int position = 0;
+            score_values sv;
+            /*set large pvalue*/
+            sv.get<1>() = 1;
+
+            for (int j = i; j < i + motif_size; j++) {
+                if ((position = pos(sequence[j])) != 99) {
+                    score += matrix[position + ((j-i) * 4)];
+                } else {
+                    return sv;
+                }
+            }
+            
+            sv.get<1>() = p_value[score];
+            sv.get<0>() = double(score)/m_scale + const_unscaled;
+            sv.get<2>() = i;
+            sv.get<3>() = i + motif_size;
+            return sv;
+        }
+            
+    };
+
+    /*Binary operator that returns smallest p-value*/
+    struct p_min {
+        __device__
+        score_values operator() (const score_values &tmp1, const score_values &tmp2) {
+            return tmp1.get<1>() < tmp2.get<1>() ? tmp1 : tmp2;
+        }
+    };
+
+    struct FunctorScore customFunctor;
+    #endif
+
+    template <typename ScoreConsumer>
+    void score(const std::string& sequence, ScoreConsumer& consumer) 
+    {
+        #ifdef __CUDACC__
+            thrust::device_vector<char> seq(sequence.length());
+            for (int i = 0; i < sequence.length(); ++i) {
+                seq[i] = sequence[i];
+            } 
+            customFunctor.sequence = seq.data(); 
+        
+            //Set large pvalue
+            score_values tmpSv;
+            tmpSv.get<1>() = 1; 
+        
+            score_values tmpScore  = thrust::transform_reduce(thrust::device, thrust::make_counting_iterator((int)0), thrust::make_counting_iterator((int)(sequence.length() - m_matrix.size())), customFunctor, tmpSv, p_min());
+            consumer(m_name, tmpScore.get<2>(), tmpScore.get<3>(), Score(sequence, m_is_reverse_complement, tmpScore.get<2>(), tmpScore.get<3>(), tmpScore.get<1>(), tmpScore.get<0>()));
+         
+            /* thrust::device_vector<score_values> sv(sequence.length());
+            thrust::transform(thrust::device, thrust::make_counting_iterator((int)0), thrust::make_counting_iterator((int)(sequence.length() - m_matrix.size())), sv.begin(), customFunctor);
+        */
+        #else
+            for (size_t start = 1, stop = m_matrix.size(); stop <= sequence.size(); ++start, ++stop)
+            {
+                const Score score = score_sequence(sequence, start-1, stop);
+                consumer(m_name, start, stop, score);
+            }
+        #endif
     }
 
     std::string name() { return m_name; }
@@ -101,7 +234,7 @@ private:
     double m_min_before_scaling;
     std::vector<double> m_pvalues;
 
-    Score score_sequence(const std::string& sequence, size_t begin, size_t end) const;
+    Score score_sequence(const std::string& sequence, size_t begin, size_t end);
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ScoreMatrix::Score& score)

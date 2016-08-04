@@ -14,8 +14,12 @@
 #include <stdexcept>
 #include <string>
 
+
+
+
 namespace liquidator
 {
+
 
 inline bool unmapped(const bam1_t& read)
 {
@@ -44,7 +48,7 @@ public:
     };
 
     BamScorer(const std::string& bam_input_file_path,
-              const std::vector<ScoreMatrix>& matrices,
+              std::vector<ScoreMatrix>& matrices,
               PrintStyle print_style,
               bool only_score_unmapped,
               const std::string& bam_output_file_path,
@@ -179,6 +183,16 @@ public:
     }
 
 private:
+
+
+    // callback for bam_fetch()
+    static int fetch_func(const bam1_t *b, void *data)
+    {
+        std::cerr << "Working\n";
+        printf("%s : %d %d %d\n", b->data, b->core.tid, b->core.pos, b->core.l_qseq);
+        return 0;
+    }
+
     void score_all_reads()
     {
         // todo: the unmapped reads seem to all be at the very end of the loop.
@@ -190,6 +204,7 @@ private:
         auto destroyer = [](bam1_t* p) { bam_destroy1(p); };
         std::unique_ptr<bam1_t, decltype(destroyer)> raii_read(bam_init1(), destroyer);
         bam1_t* read = raii_read.get();
+        //bam_fetch(m_input, m_index, -1, -1, -1, 0, fetch_func);
         while (bam_read1(m_input, read) >= 0)
         {
             score_read(read);
@@ -198,6 +213,7 @@ private:
 
     void score_regions(const std::string& region_file_path)
     {
+
         const std::string region_extension = boost::filesystem::extension(region_file_path).erase(0, 1);
         for (const Region& region : parse_regions(region_file_path, region_extension, 0))
         {
@@ -263,7 +279,7 @@ private:
 
         const size_t hit_count_before_this_read = m_total_hit_count;
         m_read = read;
-        for (const auto& matrix : m_matrices)
+        for ( auto& matrix : m_matrices)
         {
             matrix.score(m_sequence, *this);
         }
@@ -294,7 +310,7 @@ private:
     bamFile m_output;
     bam_header_t* m_header;
     bam_index_t* m_index;
-    const std::vector<ScoreMatrix>& m_matrices;
+    std::vector<ScoreMatrix>& m_matrices;
     const PrintStyle m_print_style;
     const bool m_only_score_unmapped;
     const bam1_t* m_read;

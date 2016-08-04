@@ -35,11 +35,24 @@ ScoreMatrix::ScoreMatrix(const std::string& name,
     std::vector<double> table = detail::probability_distribution(scaledPWM.matrix, adjusted_background);
     detail::pdf_to_pvalues(table);
     m_pvalues = table;
+    customFunctor = FunctorScore(); 
+
+    customFunctor.set_matrix(m_matrix);
+    customFunctor.set_pvalue(m_pvalues);
+    
+    customFunctor.m_scale = m_scale;
+    customFunctor.const_unscaled = m_matrix.size()*m_min_before_scaling;
+
+    customFunctor.motif_size = m_matrix.size();
+
+    customFunctor.pvalue_size = table.size();
+    
 }
 
 ScoreMatrix::Score
-ScoreMatrix::score_sequence(const std::string& sequence, size_t begin, size_t end) const
+ScoreMatrix::score_sequence(const std::string& sequence, size_t begin, size_t end) 
 {
+
     const unsigned scaled_score = detail::score(m_matrix, sequence, begin, end);
     assert(scaled_score < m_pvalues.size());
     const double pvalue = m_pvalues[scaled_score];

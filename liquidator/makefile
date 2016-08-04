@@ -34,14 +34,14 @@ bindir = $(prefix)/bin
 
 # I prefer clang++, but g++ is more easily available, so using that instead
 #CC=clang++
-CC=g++
-
+CC=nvcc
+GCC=g++
 # CPPFLAGS used to include march=native, but was removed so executables would 
 # work on platforms besides the one used for the build
-OPTIMIZATION_LEVEL := -O3 -DNDEBUG # normally -O3 with asserts disabled for performance
+OPTIMIZATION_LEVEL := --compiler-options "-O3"  # normally -O3 with asserts disabled for performance
 #OPTIMIZATION_LEVEL := -O0 # -O0 and asserts enabled for easier debugging
-CPPFLAGS := -std=c++11 $(OPTIMIZATION_LEVEL) -g -Wall -I ./
-LDFLAGS := $(OPTIMIZATION_LEVEL) -g -Wall
+CPPFLAGS := $(OPTIMIZATION_LEVEL) -I ./ --std=c++11 -g
+LDFLAGS := $(OPTIMIZATION_LEVEL) 
 LDLIBS := -lbam -lz -lpthread
 ADDITIONAL_LDLIBS := -lhdf5 -lhdf5_hl -ltcmalloc_minimal -ltbb
 
@@ -94,8 +94,8 @@ bamliquidator_regions: bamliquidator_regions.m.o bamliquidator.o liquidator_util
 	$(CC) $(LDFLAGS) -o bamliquidator_regions bamliquidator.o bamliquidator_regions.m.o liquidator_util.o \
 					$(LDLIBS) $(ADDITIONAL_LDLIBS) 
 
-score_matrix.o: score_matrix.h score_matrix.cpp detail/score_matrix_detail.h fimo_style_printer.h
-	$(CC) $(CPPFLAGS) -c score_matrix.cpp 
+score_matrix.o: score_matrix.h score_matrix.cu detail/score_matrix_detail.h fimo_style_printer.h
+	$(CC) $(CPPFLAGS) -c score_matrix.cu 
 
 define VERSION_H
 #ifndef LIQUIDATOR_VERSION_H_INCLUDED
@@ -120,32 +120,32 @@ version.h: bamliquidatorbatch/common_util.py
 	echo "$$VERSION_H" > version.h
 
 # todo: add to dev checklist: sudo apt-get install libboost-program-options1.54-dev libboost-filesystem1.54-dev
-motif_liquidator: motif_liquidator.m.cpp score_matrix.o parsing_detail.o fasta_reader.h bam_scorer.h liquidator_util.o version.h
-	$(CC) $(CPPFLAGS) motif_liquidator.m.cpp $(LDFLAGS) -o motif_liquidator score_matrix.o liquidator_util.o parsing_detail.o $(LDLIBS) -lboost_program_options -lboost_filesystem -lboost_system
+motif_liquidator: motif_liquidator.m.cu score_matrix.o parsing_detail.o fasta_reader.h bam_scorer.h liquidator_util.o version.h
+	$(CC) $(CPPFLAGS) motif_liquidator.m.cu $(LDFLAGS) -o motif_liquidator score_matrix.o liquidator_util.o parsing_detail.o $(LDLIBS) -lboost_program_options -lboost_filesystem -lboost_system
 
-bamliquidator.m.o: bamliquidator.m.cpp
-	$(CC) $(CPPFLAGS) -c bamliquidator.m.cpp
+bamliquidator.m.o: bamliquidator.m.cu
+	$(CC) $(CPPFLAGS) -c bamliquidator.m.cu
 
-bamliquidator_bins.m.o: bamliquidator_bins.m.cpp
-	$(CC) $(CPPFLAGS) -c bamliquidator_bins.m.cpp
+bamliquidator_bins.m.o: bamliquidator_bins.m.cu
+	$(CC) $(CPPFLAGS) -c bamliquidator_bins.m.cu
 
-bamliquidator_regions.m.o: bamliquidator_regions.m.cpp
-	$(CC) $(CPPFLAGS) -c bamliquidator_regions.m.cpp
+bamliquidator_regions.m.o: bamliquidator_regions.m.cu
+	$(CC) $(CPPFLAGS) -c bamliquidator_regions.m.cu
   
-bamliquidator.o: bamliquidator.cpp bamliquidator.h
-	$(CC) $(CPPFLAGS) -pthread -c bamliquidator.cpp
+bamliquidator.o: bamliquidator.cu bamliquidator.h
+	$(CC) $(CPPFLAGS) -c bamliquidator.cu
 
-liquidator_util.o: liquidator_util.cpp liquidator_util.h
-	$(CC) $(CPPFLAGS) -c liquidator_util.cpp
+liquidator_util.o: liquidator_util.cu liquidator_util.h
+	$(CC) $(CPPFLAGS) -c liquidator_util.cu
 
-parsing_detail.o: detail/parsing_detail.cpp liquidator_util.h detail/pwm_detail.h
-	$(CC) $(CPPFLAGS) -c detail/parsing_detail.cpp
+parsing_detail.o: detail/parsing_detail.cu liquidator_util.h detail/pwm_detail.h
+	$(CC) $(CPPFLAGS) -c detail/parsing_detail.cu
 
 EXECUTABLES = bamliquidator bamliquidator_bins bamliquidator_regions motif_liquidator
 
 archive:
 	mkdir bamliquidator-$(VERSION)
-	cp *.h *.cpp makefile bamliquidator-$(VERSION)
+	cp *.h *.cu makefile bamliquidator-$(VERSION)
 	tar -czf bamliquidator-$(VERSION).tar.gz bamliquidator-$(VERSION)
 	rm -rf bamliquidator-$(VERSION)
 	mkdir bamliquidatorbatch_$(VERSION)
@@ -170,16 +170,16 @@ gtest:
 	mkdir gtest/build
 	(cd gtest/build; cmake ..; make)
 
-cpp_test: gtest test.cpp score_matrix.o parsing_detail.o
-	$(CC) $(CPPFLAGS) -o cpp_test parsing_detail.o -I gtest/include test.cpp gtest/build/libgtest.a -pthread 
+cu_test: gtest test.cu score_matrix.o parsing_detail.o
+	$(CC) $(CPPFLAGS) -o .cu_test parsing_detail.o -I gtest/include test.cu gtest/build/libgtest.a
 
-test: cpp_test 
-	./cpp_test
+test:cu_test 
+	./.cu_test
 	python bamliquidatorbatch/test.py
 
 clean:
 	rm -f $(EXECUTABLES) *.o MANIFEST setup.py bamliquidator*.tar.gz
-	rm -rf bamliquidator*precise* bamliquidator*trusty* BamLiquidatorBatch.egg-info dist bamliquidatorbatch_* deb_dist cpp_test #gtest
+	rm -rf bamliquidator*precise* bamliquidator*trusty* BamLiquidatorBatch.egg-info dist bamliquidatorbatch_* deb_dist.cu_test #gtest
 
 install: all
 	install $(EXECUTABLES) $(DESTDIR)$(bindir)

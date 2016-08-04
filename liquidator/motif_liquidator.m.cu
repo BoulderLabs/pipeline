@@ -160,7 +160,7 @@ int process_command_line(int argc,
     return 0;
 }
 
-void process_fasta(const std::vector<ScoreMatrix>& matrices, const std::string& fasta_file_path, const std::string& output_file_path)
+void process_fasta(std::vector<ScoreMatrix>& matrices, const std::string& fasta_file_path, const std::string& output_file_path)
 {
     std::ifstream fasta_input(fasta_file_path);
     if (!fasta_input)
@@ -176,7 +176,7 @@ void process_fasta(const std::vector<ScoreMatrix>& matrices, const std::string& 
     std::string sequence_name;
     while (fasta_reader.next_read(sequence, sequence_name))
     {
-        for (const auto& matrix : matrices)
+        for ( auto& matrix : matrices)
         {
             printer.sequence_name = &sequence_name;
             matrix.score(sequence, printer);

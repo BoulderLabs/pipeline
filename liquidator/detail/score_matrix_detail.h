@@ -7,6 +7,12 @@
 
 #include <iostream>
 
+
+#include <thrust/transform.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+
 namespace liquidator { namespace detail {
 
 struct ScaledPWM
@@ -78,6 +84,8 @@ scale(const PWM& pwm, const std::pair<double, double>& min_max, const unsigned r
     return scaled_pwm;
 }
 
+
+
 // returns score; sequences with invalid characters return 0.
 unsigned score(const std::vector<std::array<unsigned, AlphabetSize>>& matrix,
                const std::string& sequence,
@@ -87,7 +95,7 @@ unsigned score(const std::vector<std::array<unsigned, AlphabetSize>>& matrix,
     assert(end >= begin);
     assert((end-begin) <= matrix.size());
     assert(end <= sequence.size());
-
+    
     unsigned score = 0;
     for (size_t position=begin, row=0; position < end; ++position, ++row)
     {

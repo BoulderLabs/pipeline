@@ -1,4 +1,6 @@
 bamliquidator_bins
+cu_test
+.cu_test
 bamliquidator_regions
 bamliquidator
 *.o
@@ -6,4 +8,10 @@ cpp_test
 motif_liquidator
 gtest
 *.creator.user
-version.h # should only ever be changed by makefile 
+version.h
+*.bam
+*.fastq
+*.fasta
+*.swp
+*.bai
+gtest-1.7.0.zip
