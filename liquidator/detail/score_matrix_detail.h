@@ -6,7 +6,8 @@
 #include "parsing_detail.h"
 
 #include <iostream>
-
+#include <map>
+#include <string>
 namespace liquidator { namespace detail {
 
 struct ScaledPWM
@@ -87,7 +88,17 @@ unsigned score(const std::vector<std::array<unsigned, AlphabetSize>>& matrix,
     assert(end >= begin);
     assert((end-begin) <= matrix.size());
     assert(end <= sequence.size());
-
+    /*
+    for (int i = 0; i < matrix.size(); ++i) {
+        for (int j = 0; j < 4; ++j) {
+            std::cout << matrix[i][j] << ' ';
+        } 
+        std::cout << '\n';
+    }
+        std::cout << '\n';
+        std::cout << '\n';
+        std::cout << '\n';
+    */
     unsigned score = 0;
     for (size_t position=begin, row=0; position < end; ++position, ++row)
     {
@@ -134,19 +145,30 @@ probability_distribution(const std::vector<std::array<unsigned, AlphabetSize>>& 
 
     current[0] = 1; // a score of 0 or better has probability 100%
 
+
+    //Looping thorugh pwd 
     for (size_t row=0; row < matrix.size(); ++row)
     {
         using std::swap;
+        //swap two vectors
+        //prior starts at zeros
         swap(prior, current);
 
+        //Max score for row is row number times max_matrix value, which is the max value of the matrix
+        //So just normilzaiton
         const size_t max_score_for_row = row*max_matrix_value;
         assert(max_score_for_row <= max_score);
 
+        //fill the current dist with zeros
         std::fill(current.begin(), current.end(), 0);
+
+        //for ACTG
         for (size_t column=0; column < AlphabetSize; ++column)
         {
+            //get value at matrix
             const unsigned matrix_score = matrix[row][column];
             assert(matrix_score <= max_score);
+            //max score for row
             for (size_t score=0; score <= max_score_for_row; ++score)
             {
                 assert(score <= max_score);
@@ -159,6 +181,7 @@ probability_distribution(const std::vector<std::array<unsigned, AlphabetSize>>& 
             }
         }
     }
+
 
     return current;
 }
@@ -176,6 +199,41 @@ void pdf_to_pvalues(std::vector<double>& p)
         }
     }
 }
+
+std::string bps = "ACGT";
+//levels starts at the size of the sequence and then goes down
+void create_map_recurse(std::string seq, my_map &matches, std::vector<std::array<unsigned, 4>> matrix, std::vector<double> pvals, unsigned score, unsigned length, int max_score, unsigned cutoff, double m_scale, double m_min_before_scaling) {
+
+
+    if (seq.length() == length && pvals[score] < 0.0001) {
+        matches[seq][0] = pvals[score];
+        matches[seq][1] = double(score)/m_scale + length * m_min_before_scaling;
+        //matches[seq] = pvals[score];
+        //check if we can stop recursion path
+    } else if ((length - seq.length()) * max_score + score < cutoff) {
+        return;
+    } else {
+        int letter = 0;
+        for (std::string::iterator it = bps.begin(); it != bps.end(); ++it) {
+             create_map_recurse(seq + *it, matches, matrix, pvals, score + matrix[seq.length() + 1][letter], length, max_score, cutoff, m_scale, m_min_before_scaling);
+            ++letter;
+         }
+    }
+
+}
+
+void create_map(my_map &matches, std::vector <std::array<unsigned, 4>> matrix, std::vector<double> pvals, double m_scale, double m_min_before_scaling) {
+
+    unsigned length = matrix.size();
+    unsigned cutoff = 9000;
+    unsigned max_score = 1000;
+
+    create_map_recurse("", matches, matrix, pvals, 0, length, max_score, cutoff, m_scale, m_min_before_scaling);
+
+
+}
+
+
 
 void reverse_complement(std::vector<std::array<double, AlphabetSize>>& matrix)
 {

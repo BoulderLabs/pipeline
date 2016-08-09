@@ -8,9 +8,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace liquidator
 {
+    typedef std::map<std::string, std::array< double,2 >> my_map;
 
 // motif position weight matrix (pwm) for scoring sequences 
 class ScoreMatrix
@@ -72,6 +74,12 @@ public:
     template <typename ScoreConsumer>
     void score(const std::string& sequence, ScoreConsumer& consumer) const
     {
+        /*for (size_t start = 1, stop = m_matrix.size(); stop <= sequence.size(); ++start, ++stop) {
+            if ((matches.find(sequence.substr(start-1, stop))) != matches.end()) {
+                auto v = matches.find(sequence.substr(start-1, stop));
+                consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start, stop, v->second[0], v->second[1]));
+            }
+        }*/
         for (size_t start = 1, stop = m_matrix.size(); stop <= sequence.size(); ++start, ++stop)
         {
             const Score score = score_sequence(sequence, start-1, stop);
@@ -100,7 +108,7 @@ private:
     double m_scale;
     double m_min_before_scaling;
     std::vector<double> m_pvalues;
-
+    my_map matches;
     Score score_sequence(const std::string& sequence, size_t begin, size_t end) const;
 };
 

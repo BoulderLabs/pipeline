@@ -4,6 +4,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <map>
+
 namespace liquidator
 {
 
@@ -35,6 +37,8 @@ ScoreMatrix::ScoreMatrix(const std::string& name,
     std::vector<double> table = detail::probability_distribution(scaledPWM.matrix, adjusted_background);
     detail::pdf_to_pvalues(table);
     m_pvalues = table;
+    
+    detail::create_map(matches, m_matrix, m_pvalues, m_scale, m_min_before_scaling);
 }
 
 ScoreMatrix::Score
