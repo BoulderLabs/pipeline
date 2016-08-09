@@ -225,7 +225,14 @@ void create_map_recurse(std::string seq, my_map &matches, std::vector<std::array
 void create_map(my_map &matches, std::vector <std::array<unsigned, 4>> matrix, std::vector<double> pvals, double m_scale, double m_min_before_scaling) {
 
     unsigned length = matrix.size();
-    unsigned cutoff = 9000;
+    int i = 0;
+    for (i = 0; i < pvals.size(); ++i) {
+        if (pvals[i] < 0.0001) {
+            break;
+        }
+    }
+
+    unsigned cutoff = i;
     unsigned max_score = 1000;
 
     create_map_recurse("", matches, matrix, pvals, 0, length, max_score, cutoff, m_scale, m_min_before_scaling);
