@@ -82,27 +82,23 @@ public:
         int bitshifts = 0;
        
         for (size_t i = 0; i < m_length - 1; ++i) {
-            key_lookup ^= (!!((sequence[i] + 10) & (1 << 2))) << bitshifts++;
-            key_lookup ^= (!!((sequence[i] + 10) & (1 << 4))) << bitshifts++;
+            char bp = sequence[i] + 10;
+            key_lookup ^= (!!(bp & (1 << 2))) << bitshifts++;
+            key_lookup ^= (!!(bp & (1 << 4))) << bitshifts++;
         }
         
         for (size_t start = 1, stop = m_length; stop <= sequence.size(); ++start, ++stop) {
-            char c = sequence[stop] + 10;
-            key_lookup = key_lookup >> 2;
-            key_lookup ^= (!!(c & (1 << 2))) << (bitshifts);
-            key_lookup ^= (!!(c & (1 << 4))) << (bitshifts + 1);
+            char bp = sequence[stop] + 10;
+            key_lookup >>= 2;
+            key_lookup ^= (!!(bp & (1 << 2))) << (bitshifts);
+            key_lookup ^= (!!(bp & (1 << 4))) << (bitshifts + 1);
+
             auto v = matches.find(key_lookup);
 
             if (v != matches.end()) {
                 consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start-1, stop, v->second[0], v->second[1]));
             }
         }
-        /*
-        for (size_t start = 1, stop = m_matrix.size(); stop <= sequence.size(); ++start, ++stop)
-        {
-            const Score score = score_sequence(sequence, start-1, stop);
-            consumer(m_name, start, stop, score);
-        }*/
     }
 
     std::string name() { return m_name; }

@@ -241,7 +241,8 @@ void create_map_recurse_int(uint64_t seq_key, uint64_t bitshifts, unsigned track
         return;
     } else {
         for (int i = 0; i < 4; ++i) {
-            seq_key ^= (!!((bps[i] + 10) & (1 << 2))) << bitshifts;
+            char c = bps[i] + 10;
+            seq_key ^= (!!(c & (1 << 2))) << bitshifts;
             seq_key ^= (!!((bps[i] + 10) & (1 << 4))) << (bitshifts - 1);
             create_map_recurse_int(seq_key, bitshifts - 2, track_length + 1, matches, matrix, pvals, score + matrix[track_length][i], length, max_score, cutoff, m_scale, m_min_before_scaling);
          }
