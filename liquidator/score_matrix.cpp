@@ -39,6 +39,7 @@ ScoreMatrix::ScoreMatrix(const std::string& name,
     m_pvalues = table;
     
     detail::create_map(matches, m_matrix, m_pvalues, m_scale, m_min_before_scaling);
+    //m_length = m_matrix.size();
 }
 
 ScoreMatrix::Score

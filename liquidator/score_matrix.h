@@ -74,9 +74,12 @@ public:
     template <typename ScoreConsumer>
     void score(const std::string& sequence, ScoreConsumer& consumer) const
     {
-        for (size_t start = 1, stop = m_matrix.size(); stop <= sequence.size(); ++start, ++stop) {
-            if ((matches.find(sequence.substr(start-1, m_matrix.size()))) != matches.end()) {
-                auto v = matches.find(sequence.substr(start-1, m_matrix.size()));
+        std::string substring;
+        int m_length = m_matrix.size();
+        for (size_t start = 1, stop = m_length; stop <= sequence.size(); ++start, ++stop) {
+            substring.assign(sequence, start-1, m_length);
+            if (matches.find(substring) != matches.end()) {
+                auto v = matches.find(substring);
                 consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start, stop, v->second[0], v->second[1]));
             }
         }
