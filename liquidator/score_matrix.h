@@ -80,7 +80,7 @@ public:
             substring.assign(sequence, start-1, m_length);
             if (matches.find(substring) != matches.end()) {
                 auto v = matches.find(substring);
-                consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start, stop, v->second[0], v->second[1]));
+                consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start-1, stop, v->second[0], v->second[1]));
             }
         }
         /*

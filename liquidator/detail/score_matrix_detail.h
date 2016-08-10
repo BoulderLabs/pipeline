@@ -204,18 +204,22 @@ std::string bps = "ACGT";
 //levels starts at the size of the sequence and then goes down
 void create_map_recurse(std::string seq, my_map &matches, std::vector<std::array<unsigned, 4>> matrix, std::vector<double> pvals, unsigned score, unsigned length, int max_score, unsigned cutoff, double m_scale, double m_min_before_scaling) {
 
+    if (score > pvals.size()) {
+        std::cout << score << " seq " << seq << '\n';
+        return;
+    }
 
-    if (seq.length() == length && pvals[score] < 0.0001) {
+    if (seq.length() == length  && pvals[score] < 0.0001) {
         matches[seq][0] = pvals[score];
         matches[seq][1] = double(score)/m_scale + length * m_min_before_scaling;
-        //matches[seq] = pvals[score];
-        //check if we can stop recursion path
+        return;
     } else if ((length - seq.length()) * max_score + score < cutoff) {
         return;
     } else {
         int letter = 0;
         for (std::string::iterator it = bps.begin(); it != bps.end(); ++it) {
-             create_map_recurse(seq + *it, matches, matrix, pvals, score + matrix[seq.length() + 1][letter], length, max_score, cutoff, m_scale, m_min_before_scaling);
+            unsigned tmp_score = score + matrix[seq.length() ][letter];
+            create_map_recurse(seq + *it, matches, matrix, pvals, tmp_score, length, max_score, cutoff, m_scale, m_min_before_scaling);
             ++letter;
          }
     }
@@ -225,7 +229,8 @@ void create_map_recurse(std::string seq, my_map &matches, std::vector<std::array
 void create_map(my_map &matches, std::vector <std::array<unsigned, 4>> matrix, std::vector<double> pvals, double m_scale, double m_min_before_scaling) {
 
     unsigned length = matrix.size();
-    int i = 0;
+    unsigned i = 0;
+    
     for (i = 0; i < pvals.size(); ++i) {
         if (pvals[i] < 0.0001) {
             break;
@@ -236,7 +241,6 @@ void create_map(my_map &matches, std::vector <std::array<unsigned, 4>> matrix, s
     unsigned max_score = 1000;
 
     create_map_recurse("", matches, matrix, pvals, 0, length, max_score, cutoff, m_scale, m_min_before_scaling);
-
 
 }
 
