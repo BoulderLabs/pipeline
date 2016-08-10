@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include <map>
-
+#include <unordered_map>
 namespace liquidator
 {
-    typedef std::map<std::string, std::array< double,2 >> my_map;
+    typedef std::unordered_map<std::string, std::array< double,2 >> my_map;
 
 // motif position weight matrix (pwm) for scoring sequences 
 class ScoreMatrix
