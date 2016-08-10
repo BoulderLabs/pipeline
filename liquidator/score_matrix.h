@@ -10,9 +10,12 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <stdint.h>
+#include <bitset>
+
 namespace liquidator
 {
-    typedef std::unordered_map<std::string, std::array< double,2 >> my_map;
+    typedef std::unordered_map<uint64_t, std::array< double,2 >> my_map;
 
 // motif position weight matrix (pwm) for scoring sequences 
 class ScoreMatrix
@@ -26,7 +29,6 @@ public:
                                          const std::array<double, AlphabetSize>& acgt_background = default_acgt_background,
                                          bool include_reverse_complement = true,
                                          double pseudo_sites = 0.1);
-
     // Background format described at http://meme.ebi.edu.au/meme/doc/bfile-format.html .
     // Note that only order 0 values are used.
     static std::array<double, AlphabetSize> read_background(std::istream& background);
@@ -76,10 +78,22 @@ public:
     {
         std::string substring;
         int m_length = m_matrix.size();
+        uint64_t key_lookup = 0;
+        int bitshifts = 0;
+       
+        for (size_t i = 0; i < m_length - 1; ++i) {
+            key_lookup ^= (!!((sequence[i] + 10) & (1 << 2))) << bitshifts++;
+            key_lookup ^= (!!((sequence[i] + 10) & (1 << 4))) << bitshifts++;
+        }
+        
         for (size_t start = 1, stop = m_length; stop <= sequence.size(); ++start, ++stop) {
-            substring.assign(sequence, start-1, m_length);
-            if (matches.find(substring) != matches.end()) {
-                auto v = matches.find(substring);
+            char c = sequence[stop] + 10;
+            key_lookup = key_lookup >> 2;
+            key_lookup ^= (!!(c & (1 << 2))) << (bitshifts);
+            key_lookup ^= (!!(c & (1 << 4))) << (bitshifts + 1);
+            auto v = matches.find(key_lookup);
+
+            if (v != matches.end()) {
                 consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start-1, stop, v->second[0], v->second[1]));
             }
         }
