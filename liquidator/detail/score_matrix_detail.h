@@ -202,7 +202,7 @@ void pdf_to_pvalues(std::vector<double>& p)
     }
 }
 
-std::string bps = "TCGT";
+std::string bps = "ACGT";
  /*
 void create_map_recurse(std::string seq, my_map &matches, std::vector<std::array<unsigned, 4>> matrix, std::vector<double> pvals, unsigned score, unsigned length, int max_score, unsigned cutoff, double m_scale, double m_min_before_scaling) {
 
@@ -227,24 +227,32 @@ void create_map_recurse(std::string seq, my_map &matches, std::vector<std::array
 }
     */
 
-void create_map_recurse_int(uint64_t seq_key, uint64_t bitshifts, unsigned track_length, my_map &matches, std::vector<std::array<unsigned, 4>> matrix, std::vector<double> pvals, unsigned score, unsigned length, int max_score, unsigned cutoff, double m_scale, double m_min_before_scaling) {
+void create_map_recurse_int( my_map &matches, std::vector<std::array<unsigned, 4>> matrix, std::vector<double> pvals, unsigned score, unsigned length, int max_score, unsigned cutoff, double m_scale, double m_min_before_scaling, std::string seq) {
 
     if (score > pvals.size()) {
         return;
     }
     
-    if ( track_length == length  && pvals[score] < 0.0001) {
+    if ( seq.size() == length  && pvals[score] < 0.0001) {
+        uint64_t seq_key = 0;
+        uint64_t bitshift = 0;
+        for (size_t i = 0; i < seq.length() ; ++i) {
+            char c = seq[i] + 10;
+            seq_key ^= (!!(c & (1 << 2))) << bitshift++;
+            seq_key ^= (!!(c & (1 << 4))) << bitshift++;
+        }
+        /*std::bitset<64> b (seq_key);
+        std::cout << "MAP " << b << '\n';
+        std::cout << "SEQ " << seq << '\n';*/
+        
         matches[seq_key][0] = pvals[score];
         matches[seq_key][1] = double(score)/m_scale + length * m_min_before_scaling;
         return;
-    } else if ((length - track_length) * max_score + score < cutoff || track_length == length) {
+    } else if ((length - seq.length()) * max_score + score < cutoff || seq.size() >= length) {
         return;
     } else {
         for (int i = 0; i < 4; ++i) {
-            char c = bps[i] + 10;
-            seq_key ^= (!!(c & (1 << 2))) << bitshifts;
-            seq_key ^= (!!((bps[i] + 10) & (1 << 4))) << (bitshifts - 1);
-            create_map_recurse_int(seq_key, bitshifts - 2, track_length + 1, matches, matrix, pvals, score + matrix[track_length][i], length, max_score, cutoff, m_scale, m_min_before_scaling);
+            create_map_recurse_int(matches, matrix, pvals, score + matrix[seq.length()][i], length, max_score, cutoff, m_scale, m_min_before_scaling, seq + bps[i]);
          }
     }
 
@@ -263,11 +271,9 @@ void create_map(my_map &matches, std::vector <std::array<unsigned, 4>> matrix, s
 
     unsigned cutoff = i;
     unsigned max_score = 1000;
-    unsigned track_length = 0;
-    unsigned bitshifts = length * 2;
 //levels starts at the size of the sequence and then goes down
     //create_map_recurse("", matches, matrix, pvals, 0, length, max_score, cutoff, m_scale, m_min_before_scaling);
-    create_map_recurse_int(0, bitshifts, track_length,  matches, matrix, pvals, 0, length, max_score, cutoff, m_scale, m_min_before_scaling);
+    create_map_recurse_int(matches, matrix, pvals, 0, length, max_score, cutoff, m_scale, m_min_before_scaling, "");
 
 }
 

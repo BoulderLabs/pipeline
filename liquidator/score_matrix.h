@@ -11,7 +11,7 @@
 #include <map>
 #include <unordered_map>
 #include <stdint.h>
-
+#include <bitset>
 namespace liquidator
 {
     typedef std::map<uint64_t, std::array< double,2 >> my_map;
@@ -79,8 +79,9 @@ public:
         int m_length = m_matrix.size();
         uint64_t key_lookup = 0;
         int bitshifts = 0;
-       
-        for (size_t i = 0; i < m_length - 1; ++i) {
+        size_t is_N = 0;
+
+        for (size_t i = 0; i < m_length; ++i) {
             char bp = sequence[i] + 10;
             key_lookup ^= (!!(bp & (1 << 2))) << bitshifts++;
             key_lookup ^= (!!(bp & (1 << 4))) << bitshifts++;
@@ -88,11 +89,20 @@ public:
         
         for (size_t start = 1, stop = m_length; stop <= sequence.size(); ++start, ++stop) {
             char bp = sequence[stop] + 10;
+            if (sequence[stop] == 'N') {
+                is_N = m_length;
+            } else if (is_N) {
+                --is_N;
+            }
+
             key_lookup ^= (!!(bp & (1 << 2))) << (bitshifts);
             key_lookup ^= (!!(bp & (1 << 4))) << (bitshifts + 1);
-            
+            //std::cout << bitshifts << '\n'; 
             my_map::const_iterator v = matches.find(key_lookup);
-            if (v != matches.end()) {
+            if (v != matches.end() && !is_N) {
+                /*std::bitset<64> b(key_lookup);
+                std::cout << b.to_string() << '\n';
+                std::cout << sequence.substr(start -1, m_length) << '\n';*/
                 consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start-1, stop, v->second[0], v->second[1]));
             }
             key_lookup >>= 2;
