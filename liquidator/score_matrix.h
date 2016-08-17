@@ -11,11 +11,10 @@
 #include <map>
 #include <unordered_map>
 #include <stdint.h>
-#include <bitset>
 
 namespace liquidator
 {
-    typedef std::unordered_map<uint64_t, std::array< double,2 >> my_map;
+    typedef std::map<uint64_t, std::array< double,2 >> my_map;
 
 // motif position weight matrix (pwm) for scoring sequences 
 class ScoreMatrix
@@ -89,15 +88,14 @@ public:
         
         for (size_t start = 1, stop = m_length; stop <= sequence.size(); ++start, ++stop) {
             char bp = sequence[stop] + 10;
-            key_lookup >>= 2;
             key_lookup ^= (!!(bp & (1 << 2))) << (bitshifts);
             key_lookup ^= (!!(bp & (1 << 4))) << (bitshifts + 1);
-
-            auto v = matches.find(key_lookup);
-
+            
+            my_map::const_iterator v = matches.find(key_lookup);
             if (v != matches.end()) {
                 consumer(m_name, start, stop, Score(sequence, m_is_reverse_complement, start-1, stop, v->second[0], v->second[1]));
             }
+            key_lookup >>= 2;
         }
     }
 
