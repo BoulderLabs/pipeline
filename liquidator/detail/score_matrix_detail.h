@@ -237,20 +237,21 @@ void create_map_recurse_int( my_map &matches, std::vector<std::array<unsigned, 4
         uint64_t seq_key = 0;
         uint64_t bitshift = 0;
         for (size_t i = 0; i < seq.length() ; ++i) {
+            //Again, quick way to get the 2 bit form of bps
             char c = seq[i] + 10;
             seq_key ^= (!!(c & (1 << 2))) << bitshift++;
             seq_key ^= (!!(c & (1 << 4))) << bitshift++;
         }
-        /*std::bitset<64> b (seq_key);
-        std::cout << "MAP " << b << '\n';
-        std::cout << "SEQ " << seq << '\n';*/
         
         matches[seq_key][0] = pvals[score];
         matches[seq_key][1] = double(score)/m_scale + length * m_min_before_scaling;
         return;
+    /*If we recursed down every possible solution, it would take forever, however,
+     * we an stop paths fairly early on and have it go faster*/
     } else if ((length - seq.length()) * max_score + score < cutoff || seq.size() >= length) {
         return;
     } else {
+        /*recursive call to get create and check all sequences (until it is impossible for them to meet minimum requeirements*/
         for (int i = 0; i < 4; ++i) {
             create_map_recurse_int(matches, matrix, pvals, score + matrix[seq.length()][i], length, max_score, cutoff, m_scale, m_min_before_scaling, seq + bps[i]);
          }
